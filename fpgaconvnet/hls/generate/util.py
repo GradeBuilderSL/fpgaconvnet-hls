@@ -49,8 +49,15 @@ class GenerateStreams:
 @dataclass
 class GenerateBiases:
     name: str
+    wr_factor: int = 1
 
     def generate_def(self):
+        if self.wr_factor > 1:
+            return f"""
+const static {self.name}_biases_t {self.name}_biases[{self.wr_factor}][{self.name.upper()}_COARSE_OUT][DIVIDE({self.name.upper()}_FILTERS,{self.name.upper()}_COARSE_OUT)] = {{
+#include "{self.name}_biases.csv"
+}};
+        """
         return f"""
 const static {self.name}_biases_t {self.name}_biases[{self.name.upper()}_COARSE_OUT][DIVIDE({self.name.upper()}_FILTERS,{self.name.upper()}_COARSE_OUT)] = {{
 #include "{self.name}_biases.csv"

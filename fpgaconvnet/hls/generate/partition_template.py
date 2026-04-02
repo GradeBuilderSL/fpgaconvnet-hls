@@ -279,12 +279,10 @@ int main()
 
         printf("RUNNING NETWORK \\n");
 
-        // perform weights reloading
+        // perform weights reloading (always reload for each WR pass to use pre-quantized DAT weights)
 #if {NAME}_WEIGHTS_RELOADING_FLAG
-        if( wr_index > 0 ) {{
-            fpgaconvnet_ip(1,wr_index,weights,test_in,test_out);
-        }}
-#endif   
+        fpgaconvnet_ip(1,wr_index,weights,test_in,test_out);
+#endif
 
         // run the network
 #if {NAME}_WEIGHTS_RELOADING_FLAG
@@ -292,6 +290,13 @@ int main()
 #else
         fpgaconvnet_ip(0,wr_index,test_in,test_out);
 #endif
+
+        // debug: print first few valid and hardware output values for wr_index slot
+        printf("DEBUG wr_index=%d: first 8 valid values at WR slot:\\n", wr_index);
+        for(int dbg=0; dbg<8; dbg++) {{
+            int pos = wr_index * DIVIDE({NAME}_CHANNELS_OUT, {NAME}_STREAMS_OUT) + dbg;
+            printf("  valid[%d]=%lu  hw[%d]=%lu\\n", pos, (unsigned long)test_out_valid[0][pos], pos, (unsigned long)test_out[0][pos]);
+        }}
 
         // check array is correct
         for(int i=0; i<{NAME}_PORTS_OUT;i++) {{

@@ -104,7 +104,11 @@ class GeneratePartition:
             if layer.type == fpgaconvnet_pb2.layer.layer_type.CONVOLUTION:
                 fn_args.append(f"{layer.name}_weights")
                 if layer.parameters.has_bias == 1:
-                    fn_args.append(f"{layer.name}_biases")
+                    is_wr_layer = (layer.name == self.partition.weights_reloading_layer)
+                    if is_wr_layer and self.partition.weights_reloading_factor > 1:
+                        fn_args.append(f"{layer.name}_biases[weights_reloading_index]")
+                    else:
+                        fn_args.append(f"{layer.name}_biases")
                 gen_convolution_layer(*args)
             if layer.type == fpgaconvnet_pb2.layer.layer_type.POOLING:
                 if layer.name.startswith("Max"):
@@ -122,7 +126,11 @@ class GeneratePartition:
             if layer.type == fpgaconvnet_pb2.layer.layer_type.INNER_PRODUCT:
                 fn_args.append(f"{layer.name}_weights")
                 if layer.parameters.has_bias == 1:
-                    fn_args.append(f"{layer.name}_biases")
+                    is_wr_layer = (layer.name == self.partition.weights_reloading_layer)
+                    if is_wr_layer and self.partition.weights_reloading_factor > 1:
+                        fn_args.append(f"{layer.name}_biases[weights_reloading_index]")
+                    else:
+                        fn_args.append(f"{layer.name}_biases")
                 gen_inner_product_layer(*args)
             if layer.type == fpgaconvnet_pb2.layer.layer_type.SQUEEZE:
                 gen_squeeze_layer(*args)
@@ -191,8 +199,8 @@ class GeneratePartition:
                         streams=1, port_width=self.port_width, ports=1)
                 # add weight generators (if bias present)
                 if layer.parameters.has_bias == 1:
-                    ## add a biases generator
-                    biases.append(GenerateBiases(layer.name))
+                    ## add a biases generator (pass wr_factor so declaration gets extra dimension for WR layers)
+                    biases.append(GenerateBiases(layer.name, wr_factor=wr_factor))
                     # create bias parameters from onnx model
                     ## get the raw biases from onnx
                     biases_raw = onnx_helper.get_model_initializer(self.model, layer.bias_path)
@@ -202,7 +210,11 @@ class GeneratePartition:
                     output_path = os.path.join(self.output_path, "data", f"{layer.name}_biases")
                     ## save biases to csv
                     with open(f'{output_path}.csv', 'w') as f:
-                        f.write(array_init(transformed_biases[0]))
+                        if wr_factor > 1:
+                            # write all WR groups so hardware can index by weights_reloading_index
+                            f.write(array_init(transformed_biases))
+                        else:
+                            f.write(array_init(transformed_biases[0]))
                     ## flatten biases into a stream
                     # FIXME check if bias width should be accum width or smth else
                     acc_int_width = layer.parameters.acc_t.width - \
@@ -381,9 +393,31 @@ class GeneratePartition:
             # check if multiple output nodes
             raise NotImplementedError("Multiple output nodes not currently supported.")
         output_node = self.partition.output_nodes[0]
-        output_stream = np.array( self.sess.run([output_node], { input_name : input_data } )[0] )
-        output_stream = np.moveaxis(output_stream, 1, -1)
-        output_stream = onnx_data._convert_fixed_port_stream(output_stream.reshape(-1))
+        output_raw = np.array( self.sess.run([output_node], { input_name : input_data } )[0] )
+        print(f"[DEBUG] ONNX output node: {output_node}")
+        print(f"[DEBUG] ONNX output raw shape (NCHW): {output_raw.shape}")
+        output_nhwc = np.moveaxis(output_raw, 1, -1)  # (batch, rows, cols, channels)
+        print(f"[DEBUG] ONNX output NHWC shape: {output_nhwc.shape}")
+        wr_factor = self.partition.weights_reloading_factor
+        total_channels = output_nhwc.shape[-1]
+        channels_per_wr = total_channels // wr_factor
+        print(f"[DEBUG] wr_factor={wr_factor}, total_channels={total_channels}, channels_per_wr={channels_per_wr}")
+        output_spatial = output_nhwc.reshape(-1, total_channels)  # (batch*rows*cols, channels)
+        # _transform_weights interleaves filters: WR pass j, position nf -> raw filter nf*wr_factor + j
+        # So valid data for (pixel, wr_j, channel_nf) = ONNX output[pixel, nf*wr_factor + j]
+        # Reshape to (N, channels_per_wr, wr_factor) then transpose to (N, wr_factor, channels_per_wr)
+        output_pairs = output_spatial.reshape(output_spatial.shape[0], channels_per_wr, wr_factor)
+        output_wr = output_pairs.transpose(0, 2, 1)    # (N, wr_factor, channels_per_wr)
+        output_flat = output_wr.reshape(-1)             # N * wr_factor * channels_per_wr values
+        print(f"[DEBUG] output_flat shape: {output_flat.shape} (expected {output_spatial.shape[0] * wr_factor * channels_per_wr})")
+        print(f"[DEBUG] First 8 values per WR pass for pixel 0:")
+        print(f"[DEBUG]   WR0 ch0-7: {output_wr[0,0,:8]}")
+        if wr_factor > 1:
+            print(f"[DEBUG]   WR1 ch0-7: {output_wr[0,1,:8]}")
+        print(f"[DEBUG] Corresponding ONNX channels for pixel 0, WR0 ch0-7: {output_spatial[0, 0:16:2]}")
+        if wr_factor > 1:
+            print(f"[DEBUG] Corresponding ONNX channels for pixel 0, WR1 ch0-7: {output_spatial[0, 1:16:2]}")
+        output_stream = onnx_data._convert_fixed_port_stream(output_flat)
         print("Writing valid output stream to .dat file")
         onnx_data._fixed_point_stream_to_dat(output_stream,
                 os.path.join(self.output_path, f"data/{self.partition.layers[-1].name}_out"),
