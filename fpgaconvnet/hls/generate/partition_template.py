@@ -103,15 +103,12 @@ void reload_weights(
 {{
 
 #pragma HLS INLINE OFF
-#pragma HLS DATAFLOW
 
     (void)weights_reloading_index;
 
-#pragma HLS stable variable=weights
-
-    // stream init
+    // stream init (no DATAFLOW: sequential execution, stream must hold all data)
     stream_t({wr_layer}_weight_t) wr[{NAME}_STREAMS_WR];
-#pragma HLS STREAM variable=wr
+#pragma HLS STREAM variable=wr depth=DIVIDE({NAME}_WR_WEIGHTS,{NAME}_STREAMS_WR)
 #pragma HLS ARRAY_PARTITION variable=wr complete dim=0
 
     mem_read<
@@ -146,10 +143,12 @@ void process(
 {{
 
 #pragma HLS INLINE OFF
-#pragma HLS DATAFLOW
 
 {weights_init}
 {biases_init}
+
+#pragma HLS DATAFLOW
+
 {streams_init}
 
     mem_read<
