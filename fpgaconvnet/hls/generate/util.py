@@ -25,6 +25,15 @@ class GenerateWeights:
 #pragma HLS BIND_STORAGE variable={self.name}_weights type={storage_type}
 #pragma HLS STABLE variable={self.name}_weights
         """
+
+    def generate_process_param(self):
+        N = self.name.upper()
+        return (f"{self.name}_weight_t {self.name}_weights"
+                f"[{N}_COARSE_IN*{N}_COARSE_GROUP]"
+                f"[{N}_COARSE_OUT]"
+                f"[DIVIDE({N}_WEIGHTS,{N}_COARSE_IN*{N}_COARSE_GROUP*{N}_COARSE_OUT*{N}_KERNEL_SIZE_X*{N}_KERNEL_SIZE_Y)]"
+                f"[{N}_KERNEL_SIZE_X][{N}_KERNEL_SIZE_Y]")
+
     def __repr__(self):
         return self.__generate_def() + "\n" + self.generate_init()
 
@@ -71,6 +80,15 @@ const static {self.name}_biases_t {self.name}_biases[{self.name.upper()}_COARSE_
 #pragma HLS BIND_STORAGE variable={self.name}_biases type=rom_np
 #pragma HLS STABLE variable={self.name}_biases
         """
+
+    def generate_process_param(self):
+        N = self.name.upper()
+        if self.wr_factor > 1:
+            return (f"const {self.name}_biases_t {self.name}_biases"
+                    f"[{self.wr_factor}][{N}_COARSE_OUT][DIVIDE({N}_FILTERS,{N}_COARSE_OUT)]")
+        return (f"const {self.name}_biases_t {self.name}_biases"
+                f"[{N}_COARSE_OUT][DIVIDE({N}_FILTERS,{N}_COARSE_OUT)]")
+
     def __repr__(self):
         return self.__generate_def() + "\n" + self.generate_init()
 

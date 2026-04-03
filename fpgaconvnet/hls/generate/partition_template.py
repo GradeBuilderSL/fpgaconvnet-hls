@@ -72,7 +72,7 @@ void reload_weights(
 void process(
     int weights_reloading_index,
     volatile mem_int in_hw[{NAME}_PORTS_IN][{NAME}_SIZE_IN],
-    volatile mem_int out_hw[{NAME}_PORTS_OUT][{NAME}_SIZE_OUT]
+    volatile mem_int out_hw[{NAME}_PORTS_OUT][{NAME}_SIZE_OUT]{weights_process_params}
 );
 
 void fpgaconvnet_ip(
@@ -138,7 +138,7 @@ void reload_weights(
 void process(
     int weights_reloading_index,
     volatile mem_int in_hw[{NAME}_PORTS_IN][{NAME}_SIZE_IN],
-    volatile mem_int out_hw[{NAME}_PORTS_OUT][{NAME}_SIZE_OUT]
+    volatile mem_int out_hw[{NAME}_PORTS_OUT][{NAME}_SIZE_OUT]{weights_process_params}
 )
 {{
 
@@ -218,7 +218,7 @@ void fpgaconvnet_ip(
 
 
     if ( mode == 0 ) {{
-        process(weights_reloading_index,in_hw,out_hw);
+        process(weights_reloading_index,in_hw,out_hw{weights_process_args});
     }} else if ( mode == 1 ) {{
 #if {NAME}_WEIGHTS_RELOADING_FLAG
         reload_weights(weights_reloading_index,wr_hw,{wr_layer}_weights);

@@ -237,6 +237,18 @@ class GeneratePartition:
         self.biases_def = "\n\n".join([b.generate_def() for b in biases])
         self.biases_init = "\n\n".join([b.generate_init() for b in biases])
 
+        # generate process() parameter declarations and call arguments for weights/biases
+        all_params = ([w.generate_process_param() for w in weights] +
+                      [b.generate_process_param() for b in biases])
+        if all_params:
+            self.weights_process_params = ",\n    " + ",\n    ".join(all_params)
+            self.weights_process_args   = ", " + ", ".join(
+                [f"{w.name}_weights" for w in weights] +
+                [f"{b.name}_biases"  for b in biases])
+        else:
+            self.weights_process_params = ""
+            self.weights_process_args   = ""
+
         # set generated flag
         self.is_generated["weights"] = True
 
@@ -290,8 +302,9 @@ class GeneratePartition:
 
         # HEADER
         network_header = network_header_template.format(
-            name        =self.name,
-            NAME        =self.name.upper(),
+            name                  =self.name,
+            NAME                  =self.name.upper(),
+            weights_process_params=self.weights_process_params,
             batch_size  =self.partition.batch_size,
             rows_in     =self.partition.layers[0].parameters.rows_in,
             cols_in     =self.partition.layers[0].parameters.cols_in,
@@ -331,15 +344,17 @@ class GeneratePartition:
 
         # format the source code template
         network_src = network_src_template.format(
-            name        =self.name,
-            NAME        =self.name.upper(),
-            wr_layer    =self.partition.weights_reloading_layer,
-            weights     =self.weights_def,
-            biases      =self.biases_def,
-            weights_init=self.weights_init,
-            biases_init =self.biases_init,
-            streams_init=self.streams_init,
-            layers      =self.layers
+            name                  =self.name,
+            NAME                  =self.name.upper(),
+            wr_layer              =self.partition.weights_reloading_layer,
+            weights               =self.weights_def,
+            biases                =self.biases_def,
+            weights_init          =self.weights_init,
+            biases_init           =self.biases_init,
+            streams_init          =self.streams_init,
+            layers                =self.layers,
+            weights_process_params=self.weights_process_params,
+            weights_process_args  =self.weights_process_args,
         )
 
         # save to output path

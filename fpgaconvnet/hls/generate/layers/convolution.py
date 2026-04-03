@@ -212,100 +212,79 @@ void {name}(
     int mode
 )
 {{
-
 #pragma HLS INLINE OFF
-
-#pragma HLS STREAM variable=in depth={buffer_depth}
-#pragma HLS STREAM variable=out
-
-#pragma HLS ARRAY_PARTITION variable=in  complete dim=0
-#pragma HLS ARRAY_PARTITION variable=out complete dim=0
-
-#pragma HLS DATAFLOW
 #pragma HLS stable variable=weights
 
-#if {NAME}_KERNEL_SIZE_X >= 1 || {NAME}_KERNEL_SIZE_Y >= 1
-    stream_t({name}_input_t) sw_out[{NAME}_COARSE_IN*{NAME}_COARSE_GROUP][{NAME}_KERNEL_SIZE_X][{NAME}_KERNEL_SIZE_Y];
-    #pragma HLS STREAM variable=sw_out
-    #pragma HLS ARRAY_PARTITION variable=sw_out complete dim=0
-#endif
+{conv_streams}
 
-#if {NAME}_KERNEL_SIZE_X == 1 && {NAME}_KERNEL_SIZE_Y == 1 && {NAME}_STRIDE_X == 1 && {NAME}_STRIDE_Y == 1
-    stream_t({name}_input_t) fork_out[{NAME}_COARSE_IN*{NAME}_COARSE_GROUP][{NAME}_COARSE_OUT];
-#else
-    stream_t({name}_input_t) fork_out[{NAME}_COARSE_IN*{NAME}_COARSE_GROUP][{NAME}_COARSE_OUT][{NAME}_KERNEL_SIZE_X][{NAME}_KERNEL_SIZE_Y];
-#endif
-    #pragma HLS STREAM variable=fork_out
-    #pragma HLS ARRAY_PARTITION variable=fork_out complete dim=0
+#pragma HLS DATAFLOW
 
-    stream_t({name}_acc_t) conv_out[{NAME}_COARSE_IN*{NAME}_COARSE_GROUP][{NAME}_COARSE_OUT];
-    #pragma HLS STREAM variable=conv_out
-    #pragma HLS ARRAY_PARTITION variable=conv_out complete dim=0
-
-#if {NAME}_ACCUM_CHANNELS > 1
-    stream_t({name}_acc_t) accum_out[{NAME}_COARSE_IN*{NAME}_COARSE_GROUP][{NAME}_COARSE_OUT];
-    #pragma HLS STREAM variable=accum_out
-    #pragma HLS ARRAY_PARTITION variable=accum_out complete dim=0
-#endif
-
-#if {NAME}_HAS_BIAS == 1
-    stream_t({name}_output_t) glue_out[{NAME}_COARSE_OUT];
-    #pragma HLS STREAM variable=glue_out
-    #pragma HLS ARRAY_PARTITION variable=glue_out complete dim=0
-#endif
-
-    {name}_coarse_in_loop: for(unsigned int i=0;i<{NAME}_COARSE_IN*{NAME}_COARSE_GROUP;i++) {{
-        #pragma HLS unroll
-#if {NAME}_KERNEL_SIZE_X == 1 && {NAME}_KERNEL_SIZE_Y == 1 && {NAME}_STRIDE_X == 1 && {NAME}_STRIDE_Y == 1
-        {name}_fork(in[i], fork_out[i]);
-#else
-        {name}_sliding_window(in[i], sw_out[i]);
-        {name}_fork(sw_out[i], fork_out[i]);
-#endif
-        {name}_coarse_out_loop: for(unsigned int j=0;j<{NAME}_COARSE_OUT;j++) {{
-            #pragma HLS unroll
-            {name}_conv(weights[i][j], fork_out[i][j], conv_out[i][j]);
-#if {NAME}_ACCUM_CHANNELS > 1
-            {name}_accum(conv_out[i][j], accum_out[i][j]);
-#endif
-        }}
-    }}
-
-#if {NAME}_ACCUM_CHANNELS > 1
-#if {NAME}_HAS_BIAS == 1
-
-    {name}_glue(accum_out, glue_out);
-
-    {name}_coarse_out_bias_loop: for(unsigned int i=0;i<{NAME}_COARSE_OUT;i++) {{
-        #pragma HLS unroll
-        {name}_bias(biases[i], glue_out[i], out[i]);
-    }}
-
-#else
-
-    {name}_glue(accum_out, out);
-
-#endif
-#else
-#if {NAME}_HAS_BIAS == 1
-
-    {name}_glue(conv_out, glue_out);
-
-    {name}_coarse_out_bias_loop: for(unsigned int i=0;i<{NAME}_COARSE_OUT;i++) {{
-        #pragma HLS unroll
-        {name}_bias(biases[i], glue_out[i], out[i]);
-    }}
-
-#else
-
-    {name}_glue(conv_out, out);
-
-#endif
-#endif
+{conv_body}
 
 }}
 
 """
+
+def _gen_conv_streams(name, param):
+    N = param['coarse_in'] * param['coarse_group']
+    M = param['coarse_out']
+    k = param['kernel_size']
+    s = param['stride']
+    channels_per_module = param['channels_in'] // (param['coarse_in'] * param['coarse_group'])
+    use_accum = channels_per_module > 1
+    has_bias = param['has_bias']
+    is_1x1 = (k[0] == 1 and k[1] == 1 and s[0] == 1 and s[1] == 1)
+    NAME = name.upper()
+    lines = []
+    if not is_1x1:
+        lines.append(f"    stream_t({name}_input_t) sw_out[{N}][{k[0]}][{k[1]}];")
+    if is_1x1:
+        lines.append(f"    stream_t({name}_input_t) fork_out[{N}][{M}];")
+    else:
+        lines.append(f"    stream_t({name}_input_t) fork_out[{N}][{M}][{k[0]}][{k[1]}];")
+    lines.append(f"    stream_t({name}_acc_t) conv_out[{N}][{M}];")
+    if use_accum:
+        lines.append(f"    stream_t({name}_acc_t) accum_out[{N}][{M}];")
+    if has_bias:
+        lines.append(f"    stream_t({name}_output_t) glue_out[{M}];")
+    return "\n".join(lines)
+
+
+def _gen_conv_body(name, param):
+    N = param['coarse_in'] * param['coarse_group']
+    M = param['coarse_out']
+    k = param['kernel_size']
+    s = param['stride']
+    channels_per_module = param['channels_in'] // (param['coarse_in'] * param['coarse_group'])
+    use_accum = channels_per_module > 1
+    has_bias = param['has_bias']
+    is_1x1 = (k[0] == 1 and k[1] == 1 and s[0] == 1 and s[1] == 1)
+    lines = []
+    for i in range(N):
+        if not is_1x1:
+            lines.append(f"    {name}_sliding_window(in[{i}], sw_out[{i}]);")
+            lines.append(f"    {name}_fork(sw_out[{i}], fork_out[{i}]);")
+        else:
+            lines.append(f"    {name}_fork(in[{i}], fork_out[{i}]);")
+    for i in range(N):
+        for j in range(M):
+            lines.append(f"    {name}_conv(weights[{i}][{j}], fork_out[{i}][{j}], conv_out[{i}][{j}]);")
+    if use_accum:
+        for i in range(N):
+            for j in range(M):
+                lines.append(f"    {name}_accum(conv_out[{i}][{j}], accum_out[{i}][{j}]);")
+    if use_accum:
+        glue_in = "accum_out"
+    else:
+        glue_in = "conv_out"
+    if has_bias:
+        lines.append(f"    {name}_glue({glue_in}, glue_out);")
+        for j in range(M):
+            lines.append(f"    {name}_bias(biases[{j}], glue_out[{j}], out[{j}]);")
+    else:
+        lines.append(f"    {name}_glue({glue_in}, out);")
+    return "\n".join(lines)
+
 
 def gen_convolution_layer(name, param, src_path, header_path):
 
@@ -364,6 +343,9 @@ def gen_convolution_layer(name, param, src_path, header_path):
     )
 
     # src
+    conv_streams = _gen_conv_streams(name, param)
+    conv_body    = _gen_conv_body(name, param)
+
     convolution_layer_src = convolution_layer_template_src.format(
         name            =name,
         NAME            =name.upper(),
@@ -373,7 +355,9 @@ def gen_convolution_layer(name, param, src_path, header_path):
         conv            =conv,
         accum           =accum,
         glue            =glue,
-        bias            =bias
+        bias            =bias,
+        conv_streams    =conv_streams,
+        conv_body       =conv_body,
     )
 
     # header

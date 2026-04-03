@@ -67,25 +67,17 @@ void {name}(
     int mode
 )
 {{
-
 #pragma HLS INLINE OFF
-
-#pragma HLS STREAM variable=in depth={buffer_depth}
-#pragma HLS STREAM variable=out
-
-#pragma HLS ARRAY_PARTITION variable=in  complete dim=0
-#pragma HLS ARRAY_PARTITION variable=out complete dim=0
-
 #pragma HLS DATAFLOW
-
-    for(unsigned int coarse_index=0; coarse_index<{NAME}_COARSE; coarse_index++)
-    {{
-#pragma HLS unroll
-        {name}_relu(in[coarse_index], out[coarse_index]);
-    }}
+{relu_body}
 }}
 
 """
+
+def _gen_relu_body(name, coarse):
+    lines = [f"    {name}_relu(in[{i}], out[{i}]);" for i in range(coarse)]
+    return "\n".join(lines)
+
 
 def gen_relu_layer(name,param,src_path,header_path):
 
@@ -98,12 +90,15 @@ def gen_relu_layer(name,param,src_path,header_path):
         indent=4
     )
 
+    relu_body = _gen_relu_body(name, param['coarse_in'])
+
     # src
     relu_layer_src = relu_layer_template_src.format(
         name  =name,
         NAME  =name.upper(),
         buffer_depth=max(param['buffer_depth'],2),
-        relu  =relu
+        relu  =relu,
+        relu_body=relu_body,
     )
 
     # header
