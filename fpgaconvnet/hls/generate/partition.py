@@ -145,6 +145,7 @@ class GeneratePartition:
                 fn_args.append(stream_in.name)
             for stream_out in layer.streams_out:
                 fn_args.append(stream_out.name)
+            fn_args.append("mode")
             fn_args = ", ".join(fn_args)
             self.layers += f"    {layer.name}({fn_args});\n"
 

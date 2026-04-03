@@ -164,6 +164,8 @@ void process(
         {NAME}_IN_DATA_WIDTH
     >(in_hw,in);
 
+    int mode = 0;
+
 {layers}
 
     mem_write<
