@@ -91,7 +91,7 @@ for i in $( seq 1 ${NUM_PARTITIONS}); do
     cd partition_${PARTITION_INDEX}
         if [ "$TEST_TYPE" = "gen_hw" ]; then
             # create fpgaconvnet partition ip
-            vivado_hls -f $FPGACONVNET_HLS/scripts/run_hls.tcl "_  -type impl -name ${NETWORK} -fpga ${ZYNQ_PART} -network_flag -reset -fast"
+            vitis-run --mode hls --tcl $FPGACONVNET_HLS/scripts/run_hls.tcl -- "_  -type impl -name ${NETWORK} -fpga ${ZYNQ_PART} -network_flag -reset -fast"
             # create bitstream for given platform
             vivado -mode batch -notrace -source $FPGACONVNET_HLS/scripts/gen_hw.tcl \
                 -tclargs $NETWORK $ZYNQ_PART $ZYNQ_BOARD $FREQ $PORT_WIDTH $WEIGHTS_RELOADING_FLAG
@@ -101,7 +101,7 @@ for i in $( seq 1 ${NUM_PARTITIONS}); do
             cp ${NETWORK}_hw_prj/project_1/project_1.runs/impl_1/design_1_wrapper.hwdef ../outputs/p${PARTITION_INDEX}.hwdef
         else
             # run hls only
-            vivado_hls -f $FPGACONVNET_HLS/scripts/run_hls.tcl "_  -type ${TEST_TYPE} -name ${NETWORK} -fpga ${ZYNQ_PART} -network_flag -reset"
+            vitis-run --mode hls --tcl $FPGACONVNET_HLS/scripts/run_hls.tcl -- "_  -type ${TEST_TYPE} -name ${NETWORK} -fpga ${ZYNQ_PART} -network_flag -reset"
         fi
     cd ..
 

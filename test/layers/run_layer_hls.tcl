@@ -5,7 +5,7 @@ source ../../../fpgaconvnet/hls/scripts/hls/tcl_getopt.tcl
 set fpgaconvnet_hardware_path ../../../fpgaconvnet/hls/hardware
 
 # get input arguments
-set hls_arg [ lindex $argv 2 ]
+set hls_arg [ lindex $argv 0 ]
 
 # get arguments (arg)   (variable)  (defaults)
 getopt $hls_arg -num    test_num    ""
@@ -42,7 +42,7 @@ open_project -reset ${name}_hls_prj
 set_top ${name}_layer_top
 
 # compiler flags
-set compiler_flags "-std=c++11 -fexceptions -I../../../src -I../../../include\
+set compiler_flags "-std=c++17 -fexceptions -D__VITIS_HLS__ -I../../../src -I../../../include\
    -I${fpgaconvnet_hardware_path} -I${fpgaconvnet_hardware_path}/hlslib/include -I./tb -I./include"
 
 # add files
@@ -54,7 +54,7 @@ add_files -tb ./tb/${name}_layer_tb.cpp -cflags "${compiler_flags}"
 open_solution -reset "solution${test_num}"
 
 # set fpga part
-set_part $fpga -tool vivado
+set_part $fpga
 
 # increase fifo depth
 config_dataflow -default_channel fifo -fifo_depth 2

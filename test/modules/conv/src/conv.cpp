@@ -9,7 +9,7 @@ void conv_top(
 {
 
 #pragma HLS DATAFLOW
-#pragma HLS RESOURCE variable=weights core=ROM_2P_BRAM
+#pragma HLS BIND_STORAGE variable=weights type=rom_np impl=bram
 
     conv<
         CONV_BATCH_SIZE,

@@ -105,6 +105,8 @@ void reload_weights(
 #pragma HLS INLINE OFF
 #pragma HLS DATAFLOW
 
+    (void)weights_reloading_index;
+
 #pragma HLS stable variable=weights
 
     // stream init
@@ -162,8 +164,6 @@ void process(
         {NAME}_IN_DATA_WIDTH
     >(in_hw,in);
 
-    int mode = 0;
-
 {layers}
 
     mem_write<
@@ -216,7 +216,6 @@ void fpgaconvnet_ip(
 #pragma HLS INTERFACE m_axi port=out_hw offset=slave depth=size_out num_read_outstanding=1 num_write_outstanding=1 max_read_burst_length=256 max_write_burst_length=256 name=fpgaconvnet_out bundle=fpgaconvnet_port_out
 
 
-    #pragma HLS DATAFLOW
     if ( mode == 0 ) {{
         process(weights_reloading_index,in_hw,out_hw);
     }} else if ( mode == 1 ) {{

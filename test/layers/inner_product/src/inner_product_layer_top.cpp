@@ -18,7 +18,7 @@ void inner_product_layer_top(
 
 #pragma HLS ARRAY_PARTITION variable=weights complete dim=1
 #pragma HLS ARRAY_PARTITION variable=weights complete dim=2
-#pragma HLS RESOURCE variable=weights core=RAM
+#pragma HLS BIND_STORAGE variable=weights type=ram_2p
 
 #if INNER_PRODUCT_LAYER_HAS_BIAS == 1
     const static inner_product_layer_biases_t biases[INNER_PRODUCT_LAYER_COARSE_OUT][DIVIDE(INNER_PRODUCT_LAYER_FILTERS, INNER_PRODUCT_LAYER_COARSE_OUT)] = {
@@ -26,7 +26,7 @@ void inner_product_layer_top(
     };
 
 #pragma HLS ARRAY_PARTITION variable=biases complete dim=1
-#pragma HLS RESOURCE variable=biases core=RAM
+#pragma HLS BIND_STORAGE variable=biases type=ram_2p
 #endif
 
     inner_product_layer(

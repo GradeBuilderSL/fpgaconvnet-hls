@@ -23,10 +23,10 @@ void batch_norm_layer_top(
 #pragma HLS STREAM variable=out
 
 DO_PRAGMA(HLS ARRAY_PARTITION variable=scale block factor=BATCH_NORM_LAYER_COARSE  dim=1)
-#pragma HLS RESOURCE variable=scale core=RAM_2P_BRAM
+#pragma HLS BIND_STORAGE variable=scale type=ram_2p impl=bram
 
 DO_PRAGMA(HLS ARRAY_PARTITION variable=shift block factor=BATCH_NORM_LAYER_COARSE  dim=1)
-#pragma HLS RESOURCE variable=shift core=RAM_2P_BRAM
+#pragma HLS BIND_STORAGE variable=shift type=ram_2p impl=bram
 
     batch_norm_layer(in,scale,shift,out,mode);
 

@@ -52,7 +52,7 @@ function run_test {
     mkdir -p data/test_${1}
     python gen_layer.py -c config/config_${1}.json -o $PWD/data/test_${1} -s src/ -h include/ -t tb/
     # RUN TEST
-    vivado_hls -f ../run_layer_hls.tcl "_  -num ${1} -type ${TEST_TYPE} -name ${LAYER}"
+    vitis-run --mode hls --tcl ../run_layer_hls.tcl -- "_  -num ${1} -type ${TEST_TYPE} -name ${LAYER}"
 
 }
 

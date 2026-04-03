@@ -45,7 +45,7 @@ function run_test {
     mkdir -p data/test_${1}
     python gen_data.py -c config/config_${1}.json -o $PWD/data/test_${1} -h tb
     # RUN TEST
-    vivado_hls -f ../run_module_hls.tcl "_ -num ${1} -type ${TEST_TYPE} -name ${MODULE}"
+    vitis-run --mode hls --tcl ../run_module_hls.tcl -- "_ -num ${1} -type ${TEST_TYPE} -name ${MODULE}"
 
 }
 

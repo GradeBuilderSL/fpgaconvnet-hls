@@ -27,7 +27,7 @@ single_layer.generate_source()
 single_layer.generate_testbench()
 
 # create HLS project
-single_layer.create_vivado_hls_project()
+single_layer.create_vitis_hls_project()
 
 # run c-synthesis
 single_layer.run_csynth()

@@ -7,7 +7,7 @@ if { $argc < 3 } {
 
 } else {
 
-    set TEST [lindex $argv 2]
+    set TEST [lindex $argv 0]
 
     exec python3 gen_relu.py -c config/config_$TEST.json
 
@@ -17,7 +17,7 @@ if { $argc < 3 } {
     add_files -tb tb/relu_tb.cpp -cflags "-I../../include -I./tb -lyaml-cpp"
 
     open_solution -reset "solution1"
-    set_part {xc7z020clg484-1} -tool vivado
+    set_part {xc7z020clg484-1}
     create_clock -period 20 -name default
 
     if { [lindex $argv 3] == "sim" } {

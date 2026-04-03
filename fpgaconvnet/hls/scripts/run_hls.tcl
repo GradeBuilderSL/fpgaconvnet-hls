@@ -5,7 +5,7 @@ source $::env(FPGACONVNET_HLS)/scripts/tcl_getopt.tcl
 set fpgaconvnet_root $::env(FPGACONVNET_HLS)
 
 # get input arguments
-set hls_arg [ lindex $argv 2 ]
+set hls_arg [ lindex $argv 0 ]
 
 # get arguments (arg)   (variable)  (defaults)
 getopt $hls_arg -num    test_num    ""
@@ -79,7 +79,7 @@ if { [ info exists test_num ] } {
 }
 
 # set fpga part
-set_part $fpga -tool vivado
+set_part $fpga
 
 # increase fifo depth
 config_dataflow -default_channel fifo -fifo_depth 2

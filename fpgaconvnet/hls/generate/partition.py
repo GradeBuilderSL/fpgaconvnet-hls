@@ -145,7 +145,6 @@ class GeneratePartition:
                 fn_args.append(stream_in.name)
             for stream_out in layer.streams_out:
                 fn_args.append(stream_out.name)
-            fn_args.append("mode")
             fn_args = ", ".join(fn_args)
             self.layers += f"    {layer.name}({fn_args});\n"
 
@@ -424,43 +423,56 @@ class GeneratePartition:
                 streams=int(self.partition.layers[-1].parameters.coarse_out), port_width=self.port_width)
 
     """
-    Vivado HLS functions
+    Vitis HLS functions
     """
 
-    def create_vivado_hls_project(self, fpga_part="xc7z045ffg900-2", clk=5):
+    def create_vitis_hls_project(self, fpga_part="xc7z045ffg900-2", clk=5):
 
         # check everything is generated
         assert reduce(lambda a, b: a & b, self.is_generated.values()), "ERROR: not all stages are generated!"
 
+        # pass parameters via environment variables (vitis-run does not support extra positional args)
+        os.environ['HLS_PRJ_PATH']   = self.output_path
+        os.environ['HLS_FPGA_PART']  = fpga_part
+        os.environ['HLS_CLK_PERIOD'] = str(clk)
+
+        # store for use by subsequent run methods
+        self._fpga_part  = fpga_part
+        self._clk_period = str(clk)
+
         # create hls project
-        os.system(f"vivado_hls -f {self.fpgaconvnet_root}/scripts/hls/create_partition_project.tcl\
-                \"_ -prj {self.output_path} -fpga {fpga_part} -clk {clk}\"")
+        os.system(f"vitis-run --mode hls --tcl {self.fpgaconvnet_root}/scripts/hls/create_partition_project.tcl")
 
         # set project generated flag
         self.project_generated = True
 
+    def _set_hls_env(self):
+        os.environ['HLS_PRJ_PATH']   = self.output_path
+        os.environ['HLS_FPGA_PART']  = self._fpga_part
+        os.environ['HLS_CLK_PERIOD'] = self._clk_period
+
     def run_csynth(self):
         assert self.project_generated, "ERROR: project not yet created!"
-        os.system(f"vivado_hls -f {self.fpgaconvnet_root}/scripts/hls/run_csynth.tcl\
-                \"_ -prj {self.output_path}\"")
+        self._set_hls_env()
+        os.system(f"vitis-run --mode hls --tcl {self.fpgaconvnet_root}/scripts/hls/run_csynth.tcl")
 
     def run_csim(self):
         assert self.project_generated, "ERROR: project not yet created!"
-        os.system(f"vivado_hls -f {self.fpgaconvnet_root}/scripts/hls/run_csim.tcl\
-                \"_ -prj {self.output_path}\"")
+        self._set_hls_env()
+        os.system(f"vitis-run --mode hls --tcl {self.fpgaconvnet_root}/scripts/hls/run_csim.tcl")
 
     def run_cosim(self):
         assert self.project_generated, "ERROR: project not yet created!"
-        os.system(f"vivado_hls -f {self.fpgaconvnet_root}/scripts/hls/run_cosim.tcl\
-                \"_ -prj {self.output_path}\"")
+        self._set_hls_env()
+        os.system(f"vitis-run --mode hls --tcl {self.fpgaconvnet_root}/scripts/hls/run_cosim.tcl")
 
     def run_implementation(self):
         assert self.project_generated, "ERROR: project not yet created!"
-        os.system(f"vivado_hls -f {self.fpgaconvnet_root}/scripts/hls/run_implementation.tcl\
-                \"_ -prj {self.output_path}\"")
+        self._set_hls_env()
+        os.system(f"vitis-run --mode hls --tcl {self.fpgaconvnet_root}/scripts/hls/run_implementation.tcl")
 
     def export_design(self):
         assert self.project_generated, "ERROR: project not yet created!"
-        os.system(f"vivado_hls -f {self.fpgaconvnet_root}/scripts/hls/export_design.tcl\
-                \"_ -prj {self.output_path}\"")
+        self._set_hls_env()
+        os.system(f"vitis-run --mode hls --tcl {self.fpgaconvnet_root}/scripts/hls/export_design.tcl")
 

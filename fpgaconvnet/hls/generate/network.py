@@ -148,7 +148,7 @@ class GenerateNetwork:
         self.partitions_generator[partition_index].generate_testbench()
 
         # create HLS project
-        self.partitions_generator[partition_index].create_vivado_hls_project(
+        self.partitions_generator[partition_index].create_vitis_hls_project(
                 fpga_part=self.fpga_part, clk=self.clk)
 
         # set project generated flag

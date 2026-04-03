@@ -22,11 +22,11 @@ void convolution_layer_top(
 
 #pragma HLS ARRAY_PARTITION variable=weights complete dim=1
 #pragma HLS ARRAY_PARTITION variable=weights complete dim=2
-#pragma HLS RESOURCE variable=weights core=RAM
+#pragma HLS BIND_STORAGE variable=weights type=ram_2p
 #pragma HLS STABLE variable=weights
 
 #pragma HLS ARRAY_PARTITION variable=biases complete dim=1
-#pragma HLS RESOURCE variable=biases core=RAM
+#pragma HLS BIND_STORAGE variable=biases type=ram_2p
 #pragma HLS STABLE variable=biases
 
     convolution_layer(weights,biases,in,out,mode);
